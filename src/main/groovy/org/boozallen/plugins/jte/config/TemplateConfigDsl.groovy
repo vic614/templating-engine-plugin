@@ -48,6 +48,9 @@ class TemplateConfigDsl implements Serializable{
     cc.scriptBaseClass = TemplateConfigBuilder.class.name
     
     GroovyShell sh = new GroovyShell(TemplateConfigDsl.classLoader, our_binding, cc);
+
+    script_text = script_text.replaceAll("@merge", "builderMerge();")
+    script_text = script_text.replaceAll("@override", "builderOverride();")
     
     TemplateConfigDslSandbox sandbox = new TemplateConfigDslSandbox()
     sandbox.register();
@@ -63,70 +66,38 @@ class TemplateConfigDsl implements Serializable{
   static String serialize(TemplateConfigObject configObj){
     Map config = new JsonSlurper().parseText(JsonOutput.toJson(configObj.getConfig()))
 
-    // inserts merge keys into config Map for printing 
-    configObj.merge.each{ merge -> 
-      if (!merge){
-        config.merge = true 
-      }
-      def last_token
-      if (merge.tokenize('.')){
-        last_token = merge.tokenize('.').last()
-      }
-      merge.tokenize('.').inject(config){ obj, prop ->
-        if (prop.equals(last_token)){
-          obj."${prop}".merge = true 
-          return obj 
-        }else{
-          return obj."${prop}" 
-        }
-      } 
-    }
-
-    // inserts override keys into config Map for printing 
-    configObj.override.each{ override -> 
-      def last_token
-      if (!override){
-        config.override = true 
-      }
-      if (override.tokenize('.')){
-        last_token = override.tokenize('.').last()
-      }
-      override.tokenize('.').inject(config){ obj, prop ->
-        if (prop.equals(last_token)){
-          obj."${prop}".override = true 
-          return obj 
-        }else{
-          return obj."${prop}" 
-        }
-      }
-    }  
-
     def depth = 0
     ArrayList file = [] 
-    return printBlock(file, depth, config).join("\n")
+    ArrayList keys = []
+    return printBlock(file, depth, config, keys, configObj).join("\n")
   }
 
-  static ArrayList printBlock(ArrayList file, depth, Map block){
+  static ArrayList printBlock(ArrayList file, depth, Map block, ArrayList keys, TemplateConfigObject configObj){
     String tab = "    "
     block.each{ key, value -> 
+      String coordinate = keys.size() ? "${keys.join(".")}.${key}" : key 
+      String merge = (coordinate in configObj.merge) ? "@merge " : "" 
+      String override = (coordinate in configObj.override) ? "@override " : "" 
       if(value instanceof Map){
         String nodeName = key.contains("-") ? "'${key}'" : key
         if (value == [:]){
-          file += "${tab*depth}${nodeName}{}"
+          file += "${tab*depth}${merge}${override}${nodeName}{}"
         }else{
-          file += "${tab*depth}${nodeName}{"
+          file += "${tab*depth}${merge}${override}${nodeName}{"
           depth++
-          file = printBlock(file, depth, value)
+          keys.push(key)
+          file = printBlock(file, depth, value, keys, configObj)
+          keys.pop()
           depth-- 
           file += "${tab*depth}}"
         }
       }else{
         if (value instanceof String){
-          file += "${tab*depth}${key} = '${StringEscapeUtils.escapeJava(value)}'"
+          file += "${tab*depth}${merge}${override}${key} = '${StringEscapeUtils.escapeJava(value)}'"
         } else if (value instanceof ArrayList){
-          file += "${tab*depth}${key} = ${value.inspect()}" 
+          file += "${tab*depth}${merge}${override}${key} = ${value.inspect()}" 
         }else{
-          file += "${tab*depth}${key} = ${value}" 
+          file += "${tab*depth}${merge}${override}${key} = ${value}" 
         }
       }
     }

@@ -90,9 +90,7 @@ class TemplateConfigDslSpec extends Specification {
     def 'One Merge First Key'(){
         setup: 
             String config = """
-            application_environments{
-                merge = true
-            } 
+            @merge application_environments
             """
         when: 
             TemplateConfigObject configObject = TemplateConfigDsl.parse(config)
@@ -104,9 +102,7 @@ class TemplateConfigDslSpec extends Specification {
         setup: 
             String config = """
             application_environments{
-                dev{
-                    merge = true
-                }
+                @merge dev
             } 
             """
         when: 
@@ -119,12 +115,8 @@ class TemplateConfigDslSpec extends Specification {
         setup: 
             String config = """
             application_environments{
-                dev{
-                    merge = true
-                }
-                test{
-                    merge = true 
-                }
+                @merge dev
+                @merge test
             } 
             """
         when: 
@@ -136,9 +128,7 @@ class TemplateConfigDslSpec extends Specification {
     def 'One Override First Key'(){
         when: 
             String config = """
-            application_environments{
-                override = true
-            } 
+            @override application_environments
             """
             TemplateConfigObject configObject = TemplateConfigDsl.parse(config)
         then: 
@@ -149,9 +139,7 @@ class TemplateConfigDslSpec extends Specification {
         when: 
             String config = """
             application_environments{
-                dev{
-                    override = true
-                }
+                @override dev
             } 
             """
             TemplateConfigObject configObject = TemplateConfigDsl.parse(config)
@@ -163,12 +151,8 @@ class TemplateConfigDslSpec extends Specification {
         setup: 
             String config = """
             application_environments{
-                dev{
-                    override = true
-                }
-                test{
-                    override = true 
-                }
+                @override dev
+                @override test
             } 
             """
         when: 
@@ -212,26 +196,6 @@ class TemplateConfigDslSpec extends Specification {
             TemplateConfigObject configObject = TemplateConfigDsl.parse(config)
         then: 
             configObject.getConfig() == [ field: [:] ]
-    }
-
-    def "merge key when not true is not added to list"(){
-        setup:
-            String config = "a{ merge = false }"
-        when: 
-            TemplateConfigObject configObject = TemplateConfigDsl.parse(config)
-        then: 
-            configObject.getConfig() == [ a: [ merge: false ] ]
-            configObject.merge == [] as Set
-    }
-
-    def "override key when not true is not added to list"(){
-        setup:
-            String config = "a{ override = false }"
-        when: 
-            TemplateConfigObject configObject = TemplateConfigDsl.parse(config)
-        then: 
-            configObject.getConfig() == [ a: [ override: false ] ]
-            configObject.override == [] as Set
     }
 
     def "syntax validation for unquoted values"(){

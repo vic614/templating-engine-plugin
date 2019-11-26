@@ -30,6 +30,8 @@ import org.jenkinsci.plugins.scriptsecurity.sandbox.whitelists.Whitelisted
 abstract class TemplateConfigBuilder extends Script{
     ArrayList object_stack = []
     ArrayList node_stack = []
+    Boolean recordMergeKey = false 
+    Boolean recordOverrideKey = false 
 
     /*
         used purely to catch syntax errors such as:
@@ -59,9 +61,21 @@ abstract class TemplateConfigBuilder extends Script{
     }
 
     @Whitelisted
+    void builderMerge(){
+        recordMergeKey = true
+    }
+
+    @Whitelisted
+    void builderOverride(){
+        recordOverrideKey = true
+    }
+
+    @Whitelisted
     BuilderMethod methodMissing(String name, args){
         object_stack.push([:])
         node_stack.push(name)
+
+        recordMergeOrOverride()
 
         args[0]()
 
@@ -96,11 +110,9 @@ abstract class TemplateConfigBuilder extends Script{
             throw new TemplateConfigException(ex.join("\n"))
         }
 
-        if (name.equals("merge") && value.equals(true)){
-            templateConfig.merge << node_stack.join(".")
-        } else if (name.equals("override") && value.equals(true)){
-            templateConfig.override << node_stack.join(".")
-        } else if (object_stack.size()){ 
+        recordMergeOrOverride(name)
+
+        if (object_stack.size()){ 
             object_stack.last()[name] = value
         } else { 
             templateConfig.config[name] = value
@@ -109,12 +121,33 @@ abstract class TemplateConfigBuilder extends Script{
 
     @Whitelisted
     BuilderMethod propertyMissing(String name){
+        recordMergeOrOverride(name)
         if (object_stack.size()){
             object_stack.last()[name] = [:]
         } else {
             templateConfig.config[name] = [:]
         }
         return BuilderMethod.PROPERTY_MISSING(name)
+    }
+
+    @Whitelisted
+    void recordMergeOrOverride(String name = null){
+        if(!recordMergeKey && !recordOverrideKey){
+            return 
+        }
+
+        String key = node_stack.join(".") 
+        if(name){
+            key += (key.length() ? ".${name}" : name)
+        }
+        if(recordMergeKey){
+            templateConfig.merge << key
+            recordMergeKey = false 
+        }
+        if(recordOverrideKey){
+            templateConfig.override << key
+            recordOverrideKey = false 
+        }
     }
 
 }
