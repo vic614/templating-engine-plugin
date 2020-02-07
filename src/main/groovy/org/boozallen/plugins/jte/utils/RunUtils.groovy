@@ -25,6 +25,8 @@ import org.jenkinsci.plugins.workflow.job.WorkflowRun
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner
 import hudson.model.Queue
 import hudson.model.TaskListener
+import hudson.model.Run;
+
 
 
 class RunUtils implements Serializable{
@@ -45,6 +47,15 @@ class RunUtils implements Serializable{
         CpsThread thread = getCurrentThread()
         FlowExecutionOwner owner = thread.getExecution().getOwner()
         return owner 
+    }
+
+    static Run<?,?> getBuild(){
+        Queue.Executable _build = getOwner().getExecutable();
+        if (!(_build instanceof Run)) {
+            throw new IOException("can only check out SCM into a Run");
+        }
+        Run<?,?> build = (Run<?,?>) _build;
+        return build 
     }
 
     static TaskListener getListener(){
